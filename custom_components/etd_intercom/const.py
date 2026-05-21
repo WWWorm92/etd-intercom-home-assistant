@@ -7,6 +7,8 @@ DOMAIN = "etd_intercom"
 CONF_TOKEN = "token"
 CONF_AUTH_METHOD = "auth_method"
 CONF_PHONE = "phone"
+CONF_INCLUDE_MANUAL_DEVICES = "include_manual_devices"
+CONF_CUSTOM_DEVICES = "custom_devices"
 
 AUTH_METHOD_TOKEN = "token"
 AUTH_METHOD_SMS = "sms"
@@ -19,9 +21,11 @@ API_INTERCOM_LIST_URL = f"{API_BASE_URL}/api/v1/intercom/list"
 API_PROFILE_ME_URL = f"{API_BASE_URL}/api/v1/profile/me"
 API_OPEN_URL = f"{API_BASE_URL}/api/v1/intercom/{{intercom_id}}/open"
 
-# Manual fallback list. It is also merged with /api/v1/intercom/list,
-# because ETD may return only part of the available doors for an account.
-FALLBACK_DEVICES = [
+PREVIEW_URL_TEMPLATE = "https://cameras-preview-server.etd-online.ru/api/cameras/preview/{intercom_id}.jpg"
+
+# Private/manual list for the current object. It is optional and can be disabled
+# during config flow. API devices from /api/v1/intercom/list always have priority.
+MANUAL_DEVICES = [
     {"slug": "kalitka_1", "name": "Калитка 1", "id": "000266", "icon": "mdi:gate-open"},
     {"slug": "kalitka_2", "name": "Калитка 2", "id": "000314", "icon": "mdi:gate-open"},
     {"slug": "kalitka_3", "name": "Калитка 3", "id": "000431", "icon": "mdi:gate-open"},

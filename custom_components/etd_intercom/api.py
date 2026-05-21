@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import re
 from typing import Any
 
 from aiohttp import ClientError, ClientResponse, ClientSession
@@ -16,29 +15,13 @@ from .const import (
     API_PROFILE_ME_URL,
     API_RESEND_SMS_URL,
     API_SUBMIT_SMS_URL,
+    PREVIEW_URL_TEMPLATE,
 )
+from .helpers import slugify
 
 
 class EtdApiError(Exception):
     """ETD API error."""
-
-
-def slugify(value: str) -> str:
-    """Create a stable ASCII-ish slug for common Russian ETD names."""
-    value = value.lower().strip()
-    replacements = {
-        "калитка": "kalitka",
-        "ворота": "vorota",
-        "подъезд": "podiezd",
-        "парадная": "podiezd",
-        "улица": "ulitsa",
-        "двор": "dvor",
-    }
-    for source, target in replacements.items():
-        value = value.replace(source, target)
-    value = re.sub(r"[^a-z0-9]+", "_", value)
-    value = re.sub(r"_+", "_", value).strip("_")
-    return value or "intercom"
 
 
 class EtdIntercomApiClient:
@@ -170,14 +153,16 @@ class EtdIntercomApiClient:
                     API_PROFILE_ME_URL,
                     headers=self.auth_headers(),
                 )
-                await response.text()
+                text = await response.text()
         except (TimeoutError, ClientError) as err:
             raise EtdApiError(f"ETD profile check failed: {err}") from err
 
         if response.status == 401:
             raise EtdApiError("ETD token is unauthorized")
+        if not 200 <= response.status < 300:
+            raise EtdApiError(f"ETD profile check failed: status={response.status}, body={text}")
 
-        return 200 <= response.status < 300
+        return True
 
     async def get_intercoms(self) -> list[dict[str, Any]]:
         """Fetch intercoms available to the account."""
@@ -195,41 +180,55 @@ class EtdIntercomApiClient:
             raise EtdApiError(f"ETD intercom list failed: status={response.status}, body={text}")
 
         if not isinstance(data, dict):
-            raise EtdApiError(f"ETD intercom list is not JSON object: {text}")
+            raise EtdApiError(f"ETD intercom list returned non-object response: {text}")
 
         devices: list[dict[str, Any]] = []
-        for flat in data.get("flats", []):
-            for intercom in flat.get("intercoms", []):
+        for flat in data.get("flats", []) or []:
+            flat_number = flat.get("flat")
+            flat_id = flat.get("flat_id")
+            address = flat.get("address_standard")
+            sip_account = flat.get("sip_account") or {}
+            account_sip_username = sip_account.get("sip_username")
+
+            for intercom in flat.get("intercoms", []) or []:
                 intercom_id = str(intercom.get("sip_username") or "").strip()
                 if not intercom_id:
                     continue
 
                 name = str(intercom.get("default_name") or intercom_id).strip()
                 camera = intercom.get("camera") or {}
-                icon = "mdi:gate-open" if "калитка" in name.lower() or "ворота" in name.lower() else "mdi:door-open"
+                camera_preview = camera.get("preview_jpeg") or PREVIEW_URL_TEMPLATE.format(
+                    intercom_id=intercom_id
+                )
 
                 devices.append(
                     {
-                        "slug": slugify(name),
-                        "name": name,
                         "id": intercom_id,
-                        "icon": icon,
-                        "source": "intercom_list",
+                        "slug": slugify(f"{name}_{intercom_id}"),
+                        "name": name,
+                        "icon": "mdi:gate-open" if "калитка" in name.lower() or "ворота" in name.lower() else "mdi:door-open",
+                        "source": "api",
                         "device_id": intercom.get("device_id"),
-                        "open_message_code": intercom.get("open_message_code"),
+                        "type": intercom.get("type"),
+                        "address": address or intercom.get("address"),
+                        "flat": flat_number,
+                        "flat_id": flat_id,
+                        "account_sip_username": account_sip_username,
                         "open_dtfm_codes": intercom.get("open_dtfm_codes"),
-                        "camera_preview_jpeg": camera.get("preview_jpeg"),
-                        # Do not expose camera.embed_link as an entity attribute: it contains a video token.
+                        "open_message_code": intercom.get("open_message_code"),
+                        "camera_device_id": camera.get("device_id"),
+                        "camera_name": camera.get("default_name") or name,
+                        "camera_preview_jpeg": camera_preview,
+                        "camera_embed_link": camera.get("embed_link"),
                     }
                 )
 
         return devices
 
     async def open_intercom(self, intercom_id: str) -> dict[str, Any]:
-        """Send open command to ETD intercom."""
+        """Send ETD open command."""
         url = API_OPEN_URL.format(intercom_id=intercom_id)
         result: dict[str, Any] = {
-            "url": url,
             "status_code": None,
             "ok": False,
             "content_type": None,
@@ -242,17 +241,37 @@ class EtdIntercomApiClient:
             async with asyncio.timeout(20):
                 response = await self._session.post(url, headers=self.auth_headers())
                 data, text = await self._read_json_or_text(response)
-
-            result["status_code"] = response.status
-            result["ok"] = 200 <= response.status < 300
-            result["content_type"] = response.headers.get("Content-Type")
-            result["body_raw"] = text
-            result["body_json"] = data
-
-        except TimeoutError:
-            result["error"] = "timeout"
-
-        except ClientError as err:
+        except (TimeoutError, ClientError) as err:
             result["error"] = str(err)
+            return result
 
+        result.update(
+            {
+                "status_code": response.status,
+                "ok": 200 <= response.status < 300,
+                "content_type": response.headers.get("Content-Type"),
+                "body_raw": text,
+                "body_json": data,
+            }
+        )
         return result
+
+    async def fetch_camera_image(self, url: str) -> bytes | None:
+        """Fetch a still preview image for camera entity."""
+        if not url:
+            return None
+
+        headers = {
+            "User-Agent": "okhttp/4.12.0",
+            "Accept": "image/jpeg,image/*,*/*",
+            "Authorization": self.authorization_header,
+        }
+
+        try:
+            async with asyncio.timeout(20):
+                response = await self._session.get(url, headers=headers)
+                if response.status != 200:
+                    return None
+                return await response.read()
+        except (TimeoutError, ClientError):
+            return None
