@@ -1,83 +1,103 @@
-# ETD Intercom v0.4 для Home Assistant
+# ETD Intercom for Home Assistant
 
-Возможности:
+Custom Home Assistant integration for ETD Online intercoms.
 
-- вход по готовому токену;
-- вход по номеру телефона + SMS;
-- автоматическая нормализация номера: `+7...`, `7...`, `8...`;
-- загрузка доступных домофонов из `/api/v1/intercom/list`;
-- опциональный встроенный ручной список устройств, если ETD API вернул не все двери;
-- добавление своих ID устройств через UI при установке или позже через настройки интеграции;
-- `button`-сущности для открытия;
-- `camera`-сущности по `preview_jpeg`;
-- `camera_embed_link` в атрибутах камеры, если ETD его вернул.
+Features:
 
-## Установка через HACS custom repository
+- Authorization by access token.
+- Authorization by phone number and SMS.
+- Loads intercom list from ETD API.
+- Supports manually added intercom IDs.
+- Creates `button` entities for opening doors/gates.
+- Creates `camera` preview entities.
+- Extracts ETD/Flussonic WHEP URLs from `embed_link`.
+- Provides `custom:etd-intercom-card` for Lovelace dashboards:
+  - `video_mode: iframe` — stable live view through ETD `webrtc-video.html`.
+  - `video_mode: whep` — experimental direct WHEP playback through Home Assistant proxy.
+  - `video_mode: preview` — preview JPEG only.
 
-1. Скопируй содержимое архива в GitHub-репозиторий.
-2. В HACS добавь репозиторий как `Integration`.
-3. Установи интеграцию.
-4. Перезапусти Home Assistant.
-5. Добавь интеграцию: `Настройки -> Устройства и службы -> Добавить интеграцию -> ETD Intercom`.
+## Lovelace resource
 
-## Свои ID устройств
+After installing and restarting Home Assistant, add a JavaScript module resource:
 
-Свои ID можно добавить во время настройки интеграции или позже:
+```text
+/etd_intercom/etd-intercom-card.js?v=0.7.0
+```
 
-`Настройки -> Устройства и службы -> ETD Intercom -> Настроить`
+## Recommended card: iframe mode
 
-Формат: один объект на строку.
+```yaml
+type: custom:etd-intercom-card
+camera_entity: camera.etd_podiezd_2_camera
+button_entity: button.etd_podiezd_2_open
+title: Подъезд 2
+video_mode: iframe
+height: 260
+```
+
+## Experimental direct WHEP mode
+
+```yaml
+type: custom:etd-intercom-card
+camera_entity: camera.etd_podiezd_2_camera
+button_entity: button.etd_podiezd_2_open
+title: Подъезд 2
+video_mode: whep
+height: 260
+```
+
+WHEP mode uses this backend proxy:
+
+```text
+/api/etd_intercom/whep/{entry_id}/{intercom_id}
+```
+
+The proxy adds ETD `Authorization: Bearer ...` server-side, so the frontend card does not need to expose the ETD access token.
+
+## Camera attributes
+
+Each `camera.etd_*` entity exposes:
+
+```text
+intercom_id
+etd_name
+preview_jpeg
+camera_embed_link
+camera_whep_url
+camera_whep_proxy_path
+```
+
+`camera_whep_url` may contain a temporary ETD video token. Treat it as sensitive.
+
+## Manual IDs format
+
+Use integration options to add manual IDs:
 
 ```text
 000270 | Подъезд 1 | mdi:door-open
 001586 | Ворота 1 | mdi:gate-open
+```
+
+Also supported:
+
+```text
 000267=Парадная 2
 ```
 
-Поля через `|` или `;`:
+Full format:
 
 ```text
-ID | Название | Иконка | Preview JPEG URL | Embed link
+ID | Name | Icon | Preview JPEG URL | Embed link | WHEP URL
 ```
 
-Минимально достаточно:
+## go2rtc note
 
-```text
-000270 | Подъезд 1
+ETD video is WHEP/WebRTC from Flussonic, not RTSP/HLS/MJPEG. If direct WHEP mode is unstable in the browser, use `video_mode: iframe` or test WHEP through go2rtc manually.
+
+A source will look roughly like this, but exact header syntax depends on your go2rtc version:
+
+```yaml
+streams:
+  etd_podiezd_2:
+    - webrtc:https://flussonic.etd-site.ru/intercoms_6/000267/whep?token=VIDEO_TOKEN#headers=Authorization: Bearer ACCESS_TOKEN
 ```
-
-Если URL превью не указан, интеграция сама соберёт его так:
-
-```text
-https://cameras-preview-server.etd-online.ru/api/cameras/preview/000270.jpg
-```
-
-Также поддерживается JSON:
-
-```json
-[
-  {"id": "000270", "name": "Подъезд 1", "icon": "mdi:door-open"},
-  {"id": "001586", "name": "Ворота 1", "icon": "mdi:gate-open"}
-]
-```
-
-## Что появится в Home Assistant
-
-Для каждого домофона создаётся устройство ETD. Внутри устройства:
-
-- кнопка `Открыть`;
-- камера `Камера` со снимком из ETD preview server.
-
-Примеры сущностей:
-
-- `button.etd_kalitka_1_open`
-- `camera.etd_kalitka_1_camera`
-- `button.etd_podiezd_2_open`
-- `camera.etd_podiezd_2_camera`
-
-## Важно про камеры
-
-Это не нативный RTSP/WebRTC поток. Интеграция создаёт still-image camera по `preview_jpeg`.
-
-Если ETD API возвращает `camera.embed_link`, ссылка сохраняется в атрибуте `camera_embed_link`.
-Её можно использовать в Lovelace iframe вручную.

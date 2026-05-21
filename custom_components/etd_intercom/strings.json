@@ -3,59 +3,52 @@
     "step": {
       "user": {
         "title": "ETD Intercom",
-        "description": "Выбери способ авторизации. Ручной список добавляет известные калитки/ворота/подъезды, если ETD API вернул не всё.\n\nСвои ID можно добавить ниже, по одному на строку:\n{example}\n\nТехническая ошибка: {error}",
+        "description": "Выберите способ авторизации.",
         "data": {
-          "auth_method": "Способ входа",
-          "include_manual_devices": "Добавить встроенный ручной список устройств",
-          "custom_devices": "Свои ID устройств"
+          "auth_method": "Способ авторизации"
         }
       },
       "token": {
-        "title": "Вход по токену",
-        "description": "Вставь ETD access token. Можно с Bearer или без Bearer.",
+        "title": "ETD Intercom: токен",
+        "description": "Введите готовый access token. Можно с Bearer или без него.\n\nДополнительно можно указать свои ID домофонов. Формат: ID | Название | Иконка.\n\nОшибка: {error}",
         "data": {
-          "token": "ETD access token"
+          "token": "Токен",
+          "custom_devices": "Свои ID домофонов"
         }
       },
       "phone": {
-        "title": "Вход по номеру телефона",
-        "description": "Введи номер телефона. Поддерживаются форматы +7XXXXXXXXXX, 7XXXXXXXXXX и 8XXXXXXXXXX.\n\nТехническая ошибка: {error}",
+        "title": "ETD Intercom: SMS",
+        "description": "Введите номер телефона. Можно в формате +7XXXXXXXXXX, 7XXXXXXXXXX или 8XXXXXXXXXX.\n\nДополнительно можно указать свои ID домофонов. Формат: ID | Название | Иконка.\n\nОшибка: {error}",
         "data": {
-          "phone": "Номер телефона"
+          "phone": "Телефон",
+          "custom_devices": "Свои ID домофонов"
         }
       },
       "sms_code": {
-        "title": "Код из SMS",
-        "description": "Введи код из SMS для номера {phone}.",
+        "title": "ETD Intercom: SMS-код",
+        "description": "Введите SMS-код.\n\nОшибка: {error}",
         "data": {
           "code": "SMS-код"
         }
       }
     },
     "error": {
-      "invalid_token": "Токен не принят ETD. Проверь токен и Bearer.",
-      "invalid_phone": "Неверный формат телефона. Введи +7XXXXXXXXXX, 7XXXXXXXXXX или 8XXXXXXXXXX.",
-      "cannot_send_sms": "Не удалось запросить SMS. Проверь номер или попробуй позже.",
-      "invalid_code": "ETD не принял SMS-код. Проверь код и повтори.",
-      "invalid_custom_devices": "Не удалось разобрать список своих ID. Проверь формат строк."
-    },
-    "abort": {
-      "already_configured": "ETD Intercom уже настроен"
+      "cannot_send_sms": "Не удалось отправить SMS",
+      "cannot_login": "Не удалось войти",
+      "invalid_code": "Неверный SMS-код",
+      "invalid_phone": "Неверный формат телефона",
+      "invalid_token": "Неверный токен"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "ETD Intercom: настройки устройств",
-        "description": "Здесь можно включить/выключить встроенный ручной список и добавить свои ID устройств.\n\nФормат строк:\n{example}\n\nТакже поддерживается JSON-массив объектов с полями id, name, icon, camera_preview_jpeg.\n\nТехническая ошибка: {error}",
+        "title": "ETD Intercom: настройки",
+        "description": "Укажите свои ID домофонов. Формат строки: ID | Название | Иконка | Preview URL | Embed link",
         "data": {
-          "include_manual_devices": "Добавить встроенный ручной список устройств",
-          "custom_devices": "Свои ID устройств"
+          "custom_devices": "Свои ID домофонов"
         }
       }
-    },
-    "error": {
-      "invalid_custom_devices": "Не удалось разобрать список своих ID. Проверь формат строк."
     }
   }
 }
