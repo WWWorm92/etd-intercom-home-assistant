@@ -1,0 +1,42 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ETD Intercom",
+        "description": "Выбери способ авторизации.",
+        "data": {
+          "auth_method": "Способ входа"
+        }
+      },
+      "token": {
+        "title": "Вход по токену",
+        "description": "Вставь ETD access token. Можно с Bearer или без Bearer.",
+        "data": {
+          "token": "ETD access token"
+        }
+      },
+      "phone": {
+        "title": "Вход по номеру телефона",
+        "description": "Введи номер телефона в формате +7XXXXXXXXXX. Интеграция запросит call_id и отправит SMS.",
+        "data": {
+          "phone": "Номер телефона"
+        }
+      },
+      "sms_code": {
+        "title": "Код из SMS",
+        "description": "Введи код из SMS для номера {phone}.",
+        "data": {
+          "code": "SMS-код"
+        }
+      }
+    },
+    "error": {
+      "invalid_token": "Токен не принят ETD. Проверь токен и Bearer.",
+      "cannot_send_sms": "Не удалось запросить SMS. Проверь номер или попробуй позже.",
+      "invalid_code": "ETD не принял SMS-код. Проверь код и повтори."
+    },
+    "abort": {
+      "already_configured": "ETD Intercom уже настроен"
+    }
+  }
+}

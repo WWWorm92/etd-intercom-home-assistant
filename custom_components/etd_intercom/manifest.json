@@ -1,0 +1,10 @@
+{
+  "domain": "etd_intercom",
+  "name": "ETD Intercom",
+  "codeowners": [],
+  "config_flow": true,
+  "documentation": "https://github.com/WWWorm92/etd-intercom-home-assistant",
+  "iot_class": "cloud_push",
+  "requirements": [],
+  "version": "0.2.0"
+}
