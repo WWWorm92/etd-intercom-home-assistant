@@ -1,41 +1,84 @@
-# ETD Intercom for Home Assistant
+# ETD Intercom
 
-Custom Home Assistant integration for ETD Online intercoms.
+Интеграция Home Assistant для домофонов ETD Online.
 
-Features:
+![HACS](https://img.shields.io/badge/HACS-Custom-orange)
+![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Integration-41BDF5)
+![Video](https://img.shields.io/badge/Video-WHEP%20%2F%20WebRTC-blue)
 
-- Authorization by access token.
-- Authorization by phone number and SMS.
-- Loads intercom list from ETD API.
-- Supports manually added intercom IDs.
-- Creates `button` entities for opening doors/gates.
-- Creates `camera` preview entities.
-- Extracts ETD/Flussonic WHEP URLs from `embed_link`.
-- Provides `custom:etd-intercom-card` for Lovelace dashboards:
-  - `video_mode: iframe` — stable live view through ETD `webrtc-video.html`.
-  - `video_mode: whep` — experimental direct WHEP playback through Home Assistant proxy.
-  - `video_mode: preview` — preview JPEG only.
+## Возможности
 
-## Lovelace resource
+- вход по токену или SMS;
+- открытие дверей, калиток, ворот;
+- камеры ETD в Home Assistant;
+- живое видео через WHEP/WebRTC;
+- ручное добавление своих ID;
+- готовые Lovelace-карточки.
 
-After installing and restarting Home Assistant, add a JavaScript module resource:
+## Установка
+
+Добавить в HACS как custom repository:
 
 ```text
-/etd_intercom/etd-intercom-card.js?v=0.7.3
+https://github.com/WWWorm92/etd-intercom-home-assistant
 ```
 
-## Recommended card: iframe mode
+Тип:
+
+```text
+Integration
+```
+
+После установки перезапустить Home Assistant.
+
+## Настройка
+
+```text
+Настройки → Устройства и службы → Добавить интеграцию → ETD Intercom
+```
+
+Вход:
+
+```text
+по токену
+или
+по телефону + SMS
+```
+
+## Ресурс Lovelace
+
+```text
+/etd_intercom/etd-intercom-card.js?v=0.8.3
+```
+
+Тип:
+
+```text
+JavaScript module
+```
+
+## Общая карточка
 
 ```yaml
-type: custom:etd-intercom-card
-camera_entity: camera.etd_podiezd_2_camera
-button_entity: button.etd_podiezd_2_open
-title: Подъезд 2
-video_mode: iframe
-height: 260
+type: custom:etd-intercom-overview-card
+title: Домофон
+columns: 3
+mobile_columns: 1
+video_mode: whep
+auto_start: true
+auto_retry: true
+height: 220
+video_fit: cover
+compact: true
+open_text: Открыть
+full_width: true
+max_width: 1500px
+grid_options:
+  columns: 12
+  rows: auto
 ```
 
-## Experimental direct WHEP mode
+## Одна камера
 
 ```yaml
 type: custom:etd-intercom-card
@@ -44,149 +87,36 @@ button_entity: button.etd_podiezd_2_open
 title: Подъезд 2
 video_mode: whep
 height: 260
+open_text: Открыть
 ```
 
-WHEP mode uses this backend proxy:
+## Свои ID
 
 ```text
-/api/etd_intercom/whep/{entry_id}/{intercom_id}
+Настройки → Устройства и службы → ETD Intercom → Настроить
 ```
 
-The proxy adds ETD `Authorization: Bearer ...` server-side, so the frontend card does not need to expose the ETD access token.
-
-## Camera attributes
-
-Each `camera.etd_*` entity exposes:
-
-```text
-intercom_id
-etd_name
-preview_jpeg
-camera_embed_link
-camera_whep_url
-camera_whep_proxy_path
-```
-
-`camera_whep_url` may contain a temporary ETD video token. Treat it as sensitive.
-
-## Manual IDs format
-
-Use integration options to add manual IDs:
+Формат:
 
 ```text
 000270 | Подъезд 1 | mdi:door-open
 001586 | Ворота 1 | mdi:gate-open
 ```
 
-Also supported:
+## Режимы видео
 
 ```text
-000267=Парадная 2
+preview — превью
+iframe  — ETD-плеер
+whep    — прямой WebRTC через HA proxy
 ```
 
-Full format:
+## Важно
 
-```text
-ID | Name | Icon | Preview JPEG URL | Embed link | WHEP URL
-```
+Не публикуйте токены, SIP-пароли, адреса и реальные WHEP-ссылки.
 
-## go2rtc note
+## Планы
 
-ETD video is WHEP/WebRTC from Flussonic, not RTSP/HLS/MJPEG. If direct WHEP mode is unstable in the browser, use `video_mode: iframe` or test WHEP through go2rtc manually.
-
-A source will look roughly like this, but exact header syntax depends on your go2rtc version:
-
-```yaml
-streams:
-  etd_podiezd_2:
-    - webrtc:https://flussonic.etd-site.ru/intercoms_6/000267/whep?token=VIDEO_TOKEN#headers=Authorization: Bearer ACCESS_TOKEN
-```
-
-
-## 0.7.3
-- Убрана нижняя подпись/подсказка из карточки по умолчанию.
-- Для возврата подсказки можно указать `show_hint: true`.
-
-## 0.7.2
-
-- Fixed WHEP overlay remaining visible after video starts.
-
-## Auto dashboard card
-
-Since v0.8.2 you can add one overview card instead of manually adding every door/camera.
-
-Recommended safe mode, previews only:
-
-```yaml
-type: custom:etd-intercom-overview-card
-title: Домофон
-columns: 2
-mobile_columns: 1
-video_mode: preview
-height: 220
-open_text: Открыть
-```
-
-Live mode via WHEP for all cards:
-
-```yaml
-type: custom:etd-intercom-overview-card
-title: Домофон
-columns: 2
-mobile_columns: 1
-video_mode: whep
-auto_start: true
-height: 220
-open_text: Открыть
-```
-
-Filtered examples:
-
-```yaml
-type: custom:etd-intercom-overview-card
-title: Подъезды
-include: подъезд, парадная
-exclude: калитка, ворота
-video_mode: preview
-```
-
-```yaml
-type: custom:etd-intercom-overview-card
-title: Калитки и ворота
-include: калитка, ворота
-video_mode: iframe
-```
-
-
-## Wide overview example
-
-```yaml
-type: custom:etd-intercom-overview-card
-title: Домофон
-columns: 2
-mobile_columns: 1
-video_mode: whep
-auto_start: true
-height: 250
-video_fit: cover
-compact: true
-open_text: Открыть
-```
-
-For iframe mode you can slightly crop the ETD player side bars:
-
-```yaml
-video_mode: iframe
-iframe_zoom: 1.12
-```
-
-
-## v0.8.3
-
-Added `full_width` and `max_width` options for overview card to allow wide layouts in HA Sections view.
-
-
-## v0.8.4
-
-- Added `sensor.etd_intercom_call` for MQTT events from baresip bridge.
-- Listens to `etd/intercom/call/state` and `etd/intercom/call/data`.
+- звонки через baresip/MQTT;
+- уведомления в Home Assistant;
+- выбор камеры при вызове.
