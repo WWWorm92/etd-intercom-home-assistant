@@ -21,7 +21,7 @@ Features:
 After installing and restarting Home Assistant, add a JavaScript module resource:
 
 ```text
-/etd_intercom/etd-intercom-card.js?v=0.7.1
+/etd_intercom/etd-intercom-card.js?v=0.7.3
 ```
 
 ## Recommended card: iframe mode
@@ -103,6 +103,10 @@ streams:
 ```
 
 
-## 0.7.1
+## 0.7.3
+- Убрана нижняя подпись/подсказка из карточки по умолчанию.
+- Для возврата подсказки можно указать `show_hint: true`.
+
+## 0.7.2
 
 - Fixed WHEP overlay remaining visible after video starts.

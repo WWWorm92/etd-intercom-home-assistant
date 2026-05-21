@@ -171,13 +171,13 @@ class ETDIntercomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: config_entries.ConfigEntry):
-        return ETDIntercomOptionsFlow(config_entry)
+        # Do not pass config_entry to the options flow.
+        # In current Home Assistant versions self.config_entry is provided
+        # by OptionsFlow itself; assigning it manually causes a 500 error.
+        return ETDIntercomOptionsFlow()
 
 
 class ETDIntercomOptionsFlow(config_entries.OptionsFlow):
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
-
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)

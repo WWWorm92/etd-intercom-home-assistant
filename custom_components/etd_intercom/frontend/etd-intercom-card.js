@@ -14,6 +14,7 @@ class ETDIntercomCard extends HTMLElement {
       auto_start: config.auto_start !== false,
       show_preview_if_no_video: config.show_preview_if_no_video !== false,
       show_status: config.show_status !== false,
+      show_hint: config.show_hint === true,
       ...config,
     };
 
@@ -289,7 +290,7 @@ class ETDIntercomCard extends HTMLElement {
           <button ${this.config.button_entity ? "" : "disabled"} id="open-btn">${this._escape(this.config.open_text)}</button>
           <button class="refresh" id="refresh-btn" title="Обновить / переподключить">↻</button>
         </div>
-        <div class="hint">${this._escape(hint)}</div>
+        ${this.config.show_hint ? `<div class="hint">${this._escape(hint)}</div>` : ""}
       </ha-card>
     `;
 
