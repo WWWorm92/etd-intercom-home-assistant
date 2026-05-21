@@ -113,7 +113,7 @@ streams:
 
 ## Auto dashboard card
 
-Since v0.8.0 you can add one overview card instead of manually adding every door/camera.
+Since v0.8.2 you can add one overview card instead of manually adding every door/camera.
 
 Recommended safe mode, previews only:
 
@@ -155,4 +155,27 @@ type: custom:etd-intercom-overview-card
 title: Калитки и ворота
 include: калитка, ворота
 video_mode: iframe
+```
+
+
+## Wide overview example
+
+```yaml
+type: custom:etd-intercom-overview-card
+title: Домофон
+columns: 2
+mobile_columns: 1
+video_mode: whep
+auto_start: true
+height: 250
+video_fit: cover
+compact: true
+open_text: Открыть
+```
+
+For iframe mode you can slightly crop the ETD player side bars:
+
+```yaml
+video_mode: iframe
+iframe_zoom: 1.12
 ```

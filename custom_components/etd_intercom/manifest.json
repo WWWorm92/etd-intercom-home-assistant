@@ -6,5 +6,5 @@
   "documentation": "https://github.com/WWWorm92/etd-intercom-home-assistant",
   "iot_class": "cloud_polling",
   "requirements": [],
-  "version": "0.8.0"
+  "version": "0.8.2"
 }

@@ -11,7 +11,15 @@ class ETDIntercomCard extends HTMLElement {
       height: config.height || 260,
       open_text: config.open_text || "Открыть",
       video_mode: config.video_mode || "iframe", // iframe | whep | preview
+      video_fit: config.video_fit || "cover", // cover | contain | fill
+      iframe_zoom: Number(config.iframe_zoom || 1),
+      compact: config.compact === true,
       auto_start: config.auto_start !== false,
+      auto_start_delay: Number(config.auto_start_delay || 0),
+      auto_retry: config.auto_retry !== false,
+      retry_count: Number(config.retry_count || 3),
+      retry_delay: Number(config.retry_delay || 2500),
+      connect_timeout: Number(config.connect_timeout || 10000),
       show_preview_if_no_video: config.show_preview_if_no_video !== false,
       show_status: config.show_status !== false,
       show_hint: config.show_hint === true,
@@ -27,6 +35,11 @@ class ETDIntercomCard extends HTMLElement {
     this._whepStarting = false;
     this._whepStatus = "";
     this._lastRenderKey = null;
+    this._whepRetryAttempt = 0;
+    this._whepTimeoutTimer = null;
+    this._whepRetryTimer = null;
+    this._whepAutostartTimer = null;
+    this._whepConnected = false;
   }
 
   set hass(hass) {
@@ -67,6 +80,9 @@ class ETDIntercomCard extends HTMLElement {
       title: this.config.title,
       height: this.config.height,
       mode: this.config.video_mode,
+      auto_retry: this.config.auto_retry,
+      retry_count: this.config.retry_count,
+      connect_timeout: this.config.connect_timeout,
       embed: this._getEmbedLink(cameraState),
       whep: this._getWhepProxyPath(cameraState),
     });
@@ -112,6 +128,7 @@ class ETDIntercomCard extends HTMLElement {
 
   _refresh() {
     if (this.config.video_mode === "whep") {
+      this._whepRetryAttempt = 0;
       this._restartWhep();
       return;
     }
@@ -151,6 +168,11 @@ class ETDIntercomCard extends HTMLElement {
     const status = this._lastStatus(buttonState);
     const height = Number(this.config.height) || 260;
     const mode = String(this.config.video_mode || "iframe").toLowerCase();
+    const videoFit = ["cover", "contain", "fill", "scale-down"].includes(String(this.config.video_fit).toLowerCase())
+      ? String(this.config.video_fit).toLowerCase()
+      : "cover";
+    const iframeZoom = Math.max(1, Number(this.config.iframe_zoom || 1));
+    const compact = this.config.compact === true;
 
     let videoBlock = "";
     let hint = "";
@@ -163,7 +185,7 @@ class ETDIntercomCard extends HTMLElement {
         </div>`;
       hint = `WHEP через HA proxy. Если не подключается — переключи video_mode на iframe.`;
     } else if (mode !== "preview" && embedLink) {
-      videoBlock = `<iframe class="video" src="${this._escape(embedLink)}" allow="autoplay; fullscreen; microphone; camera" referrerpolicy="no-referrer-when-downgrade"></iframe>`;
+      videoBlock = `<div class="iframe-shell" style="--iframe-zoom:${iframeZoom}"><iframe class="video iframe-video" src="${this._escape(embedLink)}" allow="autoplay; fullscreen; microphone; camera" referrerpolicy="no-referrer-when-downgrade"></iframe></div>`;
       hint = `Живое видео через ETD iframe.`;
     } else if (this.config.show_preview_if_no_video && previewUrl) {
       videoBlock = `<img class="video" src="${this._escape(previewUrl)}${forceRefresh ? (previewUrl.includes('?') ? '&' : '?') + 'refresh=' + Date.now() : ''}" alt="${this._escape(title)}">`;
@@ -189,7 +211,7 @@ class ETDIntercomCard extends HTMLElement {
           align-items: center;
           justify-content: space-between;
           gap: 12px;
-          padding: 14px 16px 10px;
+          padding: ${compact ? "10px 14px 8px" : "14px 16px 10px"};
         }
         .title {
           font-size: 16px;
@@ -217,8 +239,24 @@ class ETDIntercomCard extends HTMLElement {
           height: 100%;
           border: 0;
           display: block;
-          object-fit: cover;
+          object-fit: ${videoFit};
           background: #000;
+        }
+        .iframe-shell {
+          width: 100%;
+          height: 100%;
+          position: relative;
+          overflow: hidden;
+          background: #000;
+        }
+        .iframe-video {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: calc(100% / var(--iframe-zoom));
+          height: calc(100% / var(--iframe-zoom));
+          transform: translate(-50%, -50%) scale(var(--iframe-zoom));
+          transform-origin: center center;
         }
         .whep-wrap { width: 100%; height: 100%; position: relative; background: #000; }
         .overlay {
@@ -249,14 +287,14 @@ class ETDIntercomCard extends HTMLElement {
           display: grid;
           grid-template-columns: 1fr auto;
           gap: 10px;
-          padding: 12px;
+          padding: ${compact ? "8px 10px 10px" : "12px"};
         }
         button {
           border: 1px solid rgba(76,175,80,0.45);
           background: rgba(20, 90, 45, 0.42);
           color: var(--primary-text-color);
           border-radius: 18px;
-          padding: 13px 16px;
+          padding: ${compact ? "11px 14px" : "13px 16px"};
           font-size: 15px;
           font-weight: 650;
           cursor: pointer;
@@ -298,7 +336,9 @@ class ETDIntercomCard extends HTMLElement {
     this.shadowRoot.getElementById("refresh-btn")?.addEventListener("click", () => this._refresh());
 
     if (mode === "whep" && whepProxyPath && this.config.auto_start) {
-      setTimeout(() => this._startWhep(whepProxyPath), 0);
+      clearTimeout(this._whepAutostartTimer);
+      const delay = Math.max(0, Number(this.config.auto_start_delay || 0));
+      this._whepAutostartTimer = setTimeout(() => this._startWhep(whepProxyPath), delay);
     }
   }
 
@@ -313,6 +353,13 @@ class ETDIntercomCard extends HTMLElement {
   }
 
   _stopWhep() {
+    clearTimeout(this._whepTimeoutTimer);
+    clearTimeout(this._whepRetryTimer);
+    clearTimeout(this._whepAutostartTimer);
+    this._whepTimeoutTimer = null;
+    this._whepRetryTimer = null;
+    this._whepAutostartTimer = null;
+    this._whepConnected = false;
     try {
       if (this._pc) {
         this._pc.getSenders?.().forEach((sender) => sender.track?.stop?.());
@@ -336,9 +383,15 @@ class ETDIntercomCard extends HTMLElement {
     if (this._whepStarting) return;
 
     this._whepStarting = true;
+    this._whepConnected = false;
     this._setOverlay(overlay, "Подключение WHEP...");
 
-    const hideOverlay = () => this._setOverlay(overlay, "", true);
+    const hideOverlay = () => {
+      this._whepConnected = true;
+      clearTimeout(this._whepTimeoutTimer);
+      this._whepRetryAttempt = 0;
+      this._setOverlay(overlay, "", true);
+    };
     video.onloadedmetadata = hideOverlay;
     video.onplaying = hideOverlay;
     video.oncanplay = hideOverlay;
@@ -365,10 +418,23 @@ class ETDIntercomCard extends HTMLElement {
       };
 
       pc.onconnectionstatechange = () => {
+        if (["connected", "completed"].includes(pc.connectionState)) {
+          this._whepConnected = true;
+          clearTimeout(this._whepTimeoutTimer);
+        }
         if (["failed", "disconnected", "closed"].includes(pc.connectionState)) {
           this._setOverlay(overlay, `WHEP: ${pc.connectionState}`);
+          if (this.config.auto_retry && pc.connectionState !== "closed") {
+            this._scheduleWhepRetry(proxyPath, overlay, `connection ${pc.connectionState}`);
+          }
         }
       };
+
+      this._whepTimeoutTimer = setTimeout(() => {
+        if (!this._whepConnected && !video.srcObject && this.config.auto_retry) {
+          this._scheduleWhepRetry(proxyPath, overlay, "timeout waiting video");
+        }
+      }, Math.max(3000, Number(this.config.connect_timeout || 10000)));
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -402,11 +468,49 @@ class ETDIntercomCard extends HTMLElement {
         hideOverlay();
       }
     } catch (err) {
-      this._stopWhep();
-      this._setOverlay(overlay, `WHEP ошибка: ${err?.message || err}`);
+      const message = err?.message || err;
+      this._stopWhep(false);
+      if (this.config.auto_retry) {
+        this._scheduleWhepRetry(proxyPath, overlay, message);
+      } else {
+        this._setOverlay(overlay, `WHEP ошибка: ${message}`);
+      }
     } finally {
       this._whepStarting = false;
     }
+  }
+
+  _scheduleWhepRetry(proxyPath, overlay, reason = "") {
+    clearTimeout(this._whepTimeoutTimer);
+    clearTimeout(this._whepRetryTimer);
+
+    const maxRetries = Math.max(0, Number(this.config.retry_count || 0));
+    if (this._whepRetryAttempt >= maxRetries) {
+      this._setOverlay(overlay, `WHEP не подключился${reason ? `: ${reason}` : ""}`);
+      return;
+    }
+
+    this._whepRetryAttempt += 1;
+    const delay = Math.max(500, Number(this.config.retry_delay || 2500));
+    this._setOverlay(overlay, `Повтор подключения ${this._whepRetryAttempt}/${maxRetries}...`);
+
+    try {
+      if (this._pc) {
+        this._pc.getSenders?.().forEach((sender) => sender.track?.stop?.());
+        this._pc.getReceivers?.().forEach((receiver) => receiver.track?.stop?.());
+        this._pc.close();
+      }
+    } catch (err) {
+      // ignore
+    }
+    this._pc = null;
+    this._whepKey = null;
+    this._whepStarting = false;
+    this._whepConnected = false;
+
+    this._whepRetryTimer = setTimeout(() => {
+      this._startWhep(proxyPath, true);
+    }, delay);
   }
 
   _waitForIceGathering(pc, timeoutMs = 3500) {
@@ -481,12 +585,20 @@ class ETDIntercomOverviewCard extends HTMLElement {
       mobile_columns: Number(config.mobile_columns || 1),
       height: Number(config.height || 220),
       video_mode: config.video_mode || "preview", // preview | iframe | whep
+      video_fit: config.video_fit || "cover",
+      iframe_zoom: Number(config.iframe_zoom || 1),
+      compact: config.compact === true,
       open_text: config.open_text || "Открыть",
       sort: config.sort !== false,
       show_header: config.show_header !== false,
       show_count: config.show_count !== false,
       show_status: config.show_status !== false,
       auto_start: config.auto_start === true,
+      auto_retry: config.auto_retry !== false,
+      retry_count: Number(config.retry_count || 3),
+      retry_delay: Number(config.retry_delay || 2500),
+      connect_timeout: Number(config.connect_timeout || 10000),
+      start_stagger: Number(config.start_stagger || 700),
       include: config.include || null,
       exclude: config.exclude || null,
       ...config,
@@ -538,9 +650,17 @@ class ETDIntercomOverviewCard extends HTMLElement {
       mobile_columns: this.config.mobile_columns,
       height: this.config.height,
       mode: this.config.video_mode,
+      video_fit: this.config.video_fit,
+      iframe_zoom: this.config.iframe_zoom,
+      compact: this.config.compact,
       include: this.config.include,
       exclude: this.config.exclude,
       auto_start: this.config.auto_start,
+      auto_retry: this.config.auto_retry,
+      retry_count: this.config.retry_count,
+      retry_delay: this.config.retry_delay,
+      connect_timeout: this.config.connect_timeout,
+      start_stagger: this.config.start_stagger,
       show_status: this.config.show_status,
     });
   }
@@ -689,7 +809,7 @@ class ETDIntercomOverviewCard extends HTMLElement {
       return;
     }
 
-    for (const pair of pairs) {
+    pairs.forEach((pair, index) => {
       const card = document.createElement("etd-intercom-card");
       card.setConfig({
         title: pair.name,
@@ -697,16 +817,24 @@ class ETDIntercomOverviewCard extends HTMLElement {
         button_entity: pair.button_entity,
         height: this.config.height,
         video_mode: this.config.video_mode,
+        video_fit: this.config.video_fit,
+        iframe_zoom: this.config.iframe_zoom,
+        compact: this.config.compact,
         open_text: this.config.open_text,
         show_status: this.config.show_status,
         show_hint: this.config.show_hint === true,
         auto_start: this.config.auto_start,
+        auto_start_delay: this.config.auto_start ? index * Math.max(0, Number(this.config.start_stagger || 0)) : 0,
+        auto_retry: this.config.auto_retry,
+        retry_count: this.config.retry_count,
+        retry_delay: this.config.retry_delay,
+        connect_timeout: this.config.connect_timeout,
         show_preview_if_no_video: this.config.show_preview_if_no_video !== false,
       });
       card.hass = this._hass;
       this._children.push(card);
       grid.appendChild(card);
-    }
+    });
   }
 
   _escape(value) {
