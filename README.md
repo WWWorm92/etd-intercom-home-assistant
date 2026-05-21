@@ -128,9 +128,9 @@ eyJ...
 Можно ввести номер в одном из форматов:
 
 ```text
-+79817765606
-79817765606
-89817765606
++79111111111
+79111111111
+89111111111
 ```
 
 Интеграция приведёт номер к формату `+7XXXXXXXXXX`, отправит SMS и попросит код подтверждения.
@@ -220,8 +220,8 @@ grid_options:
 
 ```yaml
 type: custom:etd-intercom-card
-camera_entity: camera.etd_podiezd_2_camera
-button_entity: button.etd_podiezd_2_open
+camera_entity: camera.etd_podiezd_1_camera
+button_entity: button.etd_podiezd_1_open
 title: Подъезд 2
 video_mode: whep
 height: 260
@@ -232,8 +232,8 @@ open_text: Открыть
 
 ```yaml
 type: custom:etd-intercom-card
-camera_entity: camera.etd_podiezd_2_camera
-button_entity: button.etd_podiezd_2_open
+camera_entity: camera.etd_podiezd_1_camera
+button_entity: button.etd_podiezd_1_open
 title: Подъезд 2
 video_mode: iframe
 height: 260
@@ -493,7 +493,7 @@ ETD отдаёт не RTSP, не HLS и не MJPEG. Видео идёт чере
 Пример внутренней WHEP-ссылки:
 
 ```text
-https://flussonic.etd-site.ru/intercoms_6/000267/whep?token=...
+https://flussonic.etd-site.ru/intercoms_6/001999/whep?token=...
 ```
 
 Для подключения нужен `Authorization: Bearer ...`, поэтому интеграция использует backend-прокси Home Assistant:
@@ -503,38 +503,6 @@ https://flussonic.etd-site.ru/intercoms_6/000267/whep?token=...
 ```
 
 Так Bearer-токен остаётся на стороне Home Assistant и не передаётся напрямую в frontend-карточку.
-
----
-
-## Входящие звонки
-
-Открытие и видео уже работают внутри интеграции. Входящие звонки ETD идут через SIP.
-
-В профиле ETD можно найти SIP-данные:
-
-```text
-sip_username
-sip_password
-transport
-```
-
-SIP-сервер:
-
-```text
-pbx.etd-online.ru:5060
-```
-
-Рекомендуемая схема для звонков:
-
-```text
-baresip
-→ входящий SIP-звонок
-→ MQTT
-→ Home Assistant
-→ уведомление + нужная камера + кнопка открытия
-```
-
-Планируется вынести это в отдельный модуль или дополнительную настройку интеграции.
 
 ---
 
