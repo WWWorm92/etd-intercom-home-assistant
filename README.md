@@ -586,25 +586,6 @@ grid_options:
   rows: auto
 ```
 
----
-
-## Безопасность
-
-Не публикуй в GitHub:
-
-```text
-access_token
-Authorization Bearer token
-sip_password
-номер телефона
-адрес
-flat_id
-user_id
-device_id
-camera_whep_url с реальным token
-```
-
-Все секретные данные должны храниться только локально в Home Assistant или на устройстве, где работает SIP-клиент.
 
 ---
 
