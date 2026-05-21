@@ -184,3 +184,9 @@ iframe_zoom: 1.12
 ## v0.8.3
 
 Added `full_width` and `max_width` options for overview card to allow wide layouts in HA Sections view.
+
+
+## v0.8.4
+
+- Added `sensor.etd_intercom_call` for MQTT events from baresip bridge.
+- Listens to `etd/intercom/call/state` and `etd/intercom/call/data`.
