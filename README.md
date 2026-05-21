@@ -21,7 +21,7 @@ Features:
 After installing and restarting Home Assistant, add a JavaScript module resource:
 
 ```text
-/etd_intercom/etd-intercom-card.js?v=0.7.0
+/etd_intercom/etd-intercom-card.js?v=0.7.1
 ```
 
 ## Recommended card: iframe mode
@@ -101,3 +101,8 @@ streams:
   etd_podiezd_2:
     - webrtc:https://flussonic.etd-site.ru/intercoms_6/000267/whep?token=VIDEO_TOKEN#headers=Authorization: Bearer ACCESS_TOKEN
 ```
+
+
+## 0.7.1
+
+- Fixed WHEP overlay remaining visible after video starts.

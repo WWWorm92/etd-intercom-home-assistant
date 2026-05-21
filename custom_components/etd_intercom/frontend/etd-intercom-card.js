@@ -337,6 +337,11 @@ class ETDIntercomCard extends HTMLElement {
     this._whepStarting = true;
     this._setOverlay(overlay, "Подключение WHEP...");
 
+    const hideOverlay = () => this._setOverlay(overlay, "", true);
+    video.onloadedmetadata = hideOverlay;
+    video.onplaying = hideOverlay;
+    video.oncanplay = hideOverlay;
+
     try {
       this._stopWhep();
       this._whepStarting = true;
@@ -354,8 +359,8 @@ class ETDIntercomCard extends HTMLElement {
       pc.ontrack = (event) => {
         const stream = event.streams?.[0] || new MediaStream([event.track]);
         video.srcObject = stream;
-        video.play?.().catch(() => {});
-        this._setOverlay(overlay, "", true);
+        video.play?.().then(hideOverlay).catch(() => {});
+        hideOverlay();
       };
 
       pc.onconnectionstatechange = () => {
@@ -387,8 +392,14 @@ class ETDIntercomCard extends HTMLElement {
         throw new Error(`HTTP ${response.status}: ${answerSdp.slice(0, 240)}`);
       }
 
-      await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
       this._setOverlay(overlay, "Ожидание видео...");
+      await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+
+      // In some browsers ontrack/onplaying fires before setRemoteDescription resolves.
+      // If the stream is already attached or video has started, hide the waiting overlay.
+      if (video.srcObject || video.readyState >= 2) {
+        hideOverlay();
+      }
     } catch (err) {
       this._stopWhep();
       this._setOverlay(overlay, `WHEP ошибка: ${err?.message || err}`);
