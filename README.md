@@ -49,20 +49,6 @@
 
 ---
 
-## Как это выглядит
-
-> Добавь свои скриншоты в папку `docs/screenshots/` и замени пути ниже.
-
-<p align="center">
-  <img src="docs/screenshots/overview.png" alt="Обзорная карточка ETD Intercom" width="900">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/single-card.png" alt="Карточка одной двери" width="600">
-</p>
-
----
-
 ## Установка через HACS
 
 ### 1. Добавь репозиторий
