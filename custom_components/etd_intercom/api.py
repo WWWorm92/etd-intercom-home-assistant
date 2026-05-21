@@ -5,7 +5,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 from typing import Any
 
 from aiohttp import ClientError, ClientSession
@@ -62,6 +62,24 @@ def make_default_preview_url(intercom_id: str) -> str:
     return f"https://cameras-preview-server.etd-online.ru/api/cameras/preview/{intercom_id}.jpg"
 
 
+def _query_value(url: str | None, key: str) -> str | None:
+    if not url:
+        return None
+    try:
+        parsed = urlparse(url)
+        return (parse_qs(parsed.query).get(key) or [None])[0]
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def extract_video_token(embed_link: str | None) -> str | None:
+    return _query_value(embed_link, "token")
+
+
+def extract_sip_username(embed_link: str | None) -> str | None:
+    return _query_value(embed_link, "sip_username")
+
+
 def make_whep_url_from_embed_link(embed_link: str | None) -> str | None:
     if not embed_link:
         return None
@@ -86,9 +104,20 @@ def make_default_whep_url(intercom_id: str, token: str | None = None) -> str | N
 
 
 def make_default_embed_link(intercom_id: str, token: str | None = None, sip_username: str | None = None) -> str | None:
-    # A correct embed link normally comes from /intercom/list.
-    # For manually added IDs, keep this empty unless the user provides a link.
-    return None
+    if not token:
+        return None
+
+    query = {
+        "token": token,
+        "video": f"intercoms_6/{intercom_id}",
+        "previewid": f"{intercom_id}.jpg",
+        "preview_fallback": "true",
+        "is_online": "true",
+    }
+    if sip_username:
+        query["sip_username"] = sip_username
+
+    return f"https://etd-online.ru/webrtc-video.html?{urlencode(query)}"
 
 
 def guess_icon(name: str) -> str:
@@ -194,6 +223,44 @@ def parse_custom_devices(raw: str | None) -> list[ETDDevice]:
             )
 
     return devices
+
+
+def get_shared_video_params(devices: list[ETDDevice]) -> tuple[str | None, str | None]:
+    for device in devices:
+        token = extract_video_token(device.embed_link)
+        if token:
+            return token, extract_sip_username(device.embed_link)
+    return None, None
+
+
+def apply_default_video_links(
+    devices: list[ETDDevice],
+    token: str | None,
+    sip_username: str | None = None,
+) -> list[ETDDevice]:
+    if not token:
+        return devices
+
+    enriched: list[ETDDevice] = []
+    for device in devices:
+        embed_link = device.embed_link or make_default_embed_link(device.id, token, sip_username)
+        whep_url = device.whep_url or make_whep_url_from_embed_link(embed_link) or make_default_whep_url(device.id, token)
+        preview_jpeg = device.preview_jpeg or make_default_preview_url(device.id)
+
+        enriched.append(
+            ETDDevice(
+                id=device.id,
+                name=device.name,
+                icon=device.icon,
+                preview_jpeg=preview_jpeg,
+                embed_link=embed_link,
+                whep_url=whep_url,
+                address=device.address,
+                source=device.source,
+            )
+        )
+
+    return enriched
 
 
 def merge_devices(api_devices: list[ETDDevice], manual_devices: list[ETDDevice]) -> list[ETDDevice]:

@@ -12,7 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import ETDApiClient, ETDDevice, merge_devices, parse_custom_devices
+from .api import ETDApiClient, ETDDevice, apply_default_video_links, get_shared_video_params, merge_devices, parse_custom_devices
 from .const import (
     CARD_FILENAME,
     CONF_CUSTOM_DEVICES,
@@ -114,6 +114,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     custom_raw = entry.options.get(CONF_CUSTOM_DEVICES, entry.data.get(CONF_CUSTOM_DEVICES, ""))
     manual_devices = parse_custom_devices(custom_raw)
     devices = merge_devices(api_devices, manual_devices)
+
+    # ETD uses one video token for the account in embed_link.
+    # Manually added IDs are not returned by /intercom/list, so they do not have embed/WHEP links.
+    # Reuse the token from any API camera to build iframe and WHEP URLs for custom IDs.
+    video_token, video_sip_username = get_shared_video_params(api_devices)
+    devices = apply_default_video_links(devices, video_token, video_sip_username)
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = ETDData(api=api, devices=devices)
 
