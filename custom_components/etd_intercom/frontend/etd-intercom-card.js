@@ -471,10 +471,268 @@ class ETDIntercomCard extends HTMLElement {
 
 customElements.define("etd-intercom-card", ETDIntercomCard);
 
+
+
+class ETDIntercomOverviewCard extends HTMLElement {
+  setConfig(config) {
+    this.config = {
+      title: config.title || "ETD Intercom",
+      columns: Number(config.columns || 2),
+      mobile_columns: Number(config.mobile_columns || 1),
+      height: Number(config.height || 220),
+      video_mode: config.video_mode || "preview", // preview | iframe | whep
+      open_text: config.open_text || "Открыть",
+      sort: config.sort !== false,
+      show_header: config.show_header !== false,
+      show_count: config.show_count !== false,
+      show_status: config.show_status !== false,
+      auto_start: config.auto_start === true,
+      include: config.include || null,
+      exclude: config.exclude || null,
+      ...config,
+    };
+
+    if (!this.shadowRoot) {
+      this.attachShadow({ mode: "open" });
+    }
+
+    this._lastKey = null;
+    this._children = [];
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    const key = this._buildKey();
+    if (key !== this._lastKey || !this.shadowRoot?.hasChildNodes()) {
+      this.render();
+      this._lastKey = key;
+    } else {
+      this._children.forEach((child) => {
+        child.hass = hass;
+      });
+    }
+  }
+
+  getCardSize() {
+    return 12;
+  }
+
+  getGridOptions() {
+    return {
+      rows: 8,
+      columns: 12,
+      min_rows: 4,
+      max_rows: 12,
+      min_columns: 6,
+      max_columns: 12,
+    };
+  }
+
+  _buildKey() {
+    const pairs = this._discoverPairs();
+    return JSON.stringify({
+      count: pairs.length,
+      ids: pairs.map((p) => `${p.intercom_id}:${p.camera_entity}:${p.button_entity}:${p.name}`),
+      title: this.config.title,
+      columns: this.config.columns,
+      mobile_columns: this.config.mobile_columns,
+      height: this.config.height,
+      mode: this.config.video_mode,
+      include: this.config.include,
+      exclude: this.config.exclude,
+      auto_start: this.config.auto_start,
+      show_status: this.config.show_status,
+    });
+  }
+
+  _discoverPairs() {
+    if (!this._hass?.states) return [];
+
+    const byId = new Map();
+
+    for (const [entityId, state] of Object.entries(this._hass.states)) {
+      const attrs = state.attributes || {};
+      const intercomId = attrs.intercom_id;
+      if (!intercomId) continue;
+
+      const isETD = entityId.startsWith("button.etd_") || entityId.startsWith("camera.etd_") || attrs.camera_whep_proxy_path || attrs.camera_embed_link;
+      if (!isETD) continue;
+
+      const key = String(intercomId);
+      const item = byId.get(key) || {
+        intercom_id: key,
+        name: attrs.etd_name || attrs.friendly_name || key,
+        source: attrs.source || "",
+        camera_entity: null,
+        button_entity: null,
+      };
+
+      if (attrs.etd_name) item.name = attrs.etd_name;
+      if (attrs.source) item.source = attrs.source;
+
+      if (entityId.startsWith("camera.")) item.camera_entity = entityId;
+      if (entityId.startsWith("button.")) item.button_entity = entityId;
+
+      byId.set(key, item);
+    }
+
+    let pairs = Array.from(byId.values()).filter((item) => item.camera_entity || item.button_entity);
+    pairs = this._applyFilters(pairs);
+
+    if (this.config.sort) {
+      pairs.sort((a, b) => this._sortKey(a).localeCompare(this._sortKey(b), "ru", { numeric: true }));
+    }
+
+    return pairs;
+  }
+
+  _applyFilters(items) {
+    const include = this._normalizeList(this.config.include);
+    const exclude = this._normalizeList(this.config.exclude);
+
+    return items.filter((item) => {
+      const haystack = `${item.intercom_id} ${item.name} ${item.source}`.toLowerCase();
+      if (include.length && !include.some((part) => haystack.includes(part))) return false;
+      if (exclude.length && exclude.some((part) => haystack.includes(part))) return false;
+      return true;
+    });
+  }
+
+  _normalizeList(value) {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.map((v) => String(v).toLowerCase().trim()).filter(Boolean);
+    return String(value)
+      .split(",")
+      .map((v) => v.toLowerCase().trim())
+      .filter(Boolean);
+  }
+
+  _sortKey(item) {
+    const name = String(item.name || "").toLowerCase();
+    const id = String(item.intercom_id || "");
+    const numMatch = name.match(/(\d+)/);
+    const num = numMatch ? String(numMatch[1]).padStart(4, "0") : id.padStart(6, "0");
+
+    if (name.includes("калит")) return `01-${num}-${name}`;
+    if (name.includes("ворот")) return `02-${num}-${name}`;
+    if (name.includes("подъезд") || name.includes("парад")) return `03-${num}-${name}`;
+    return `09-${name}-${id}`;
+  }
+
+  render() {
+    if (!this.shadowRoot || !this._hass) return;
+
+    const pairs = this._discoverPairs();
+    this._children = [];
+
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host { display: block; }
+        ha-card {
+          border-radius: 24px;
+          background: transparent;
+          box-shadow: none;
+          border: 0;
+        }
+        .top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin: 0 0 12px;
+          padding: 0 2px;
+        }
+        .title {
+          font-size: 18px;
+          font-weight: 700;
+          color: var(--primary-text-color);
+        }
+        .count {
+          font-size: 12px;
+          color: var(--secondary-text-color);
+          opacity: .8;
+        }
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(${Math.max(1, this.config.columns)}, minmax(0, 1fr));
+          gap: 14px;
+        }
+        .empty {
+          padding: 18px;
+          border-radius: 18px;
+          background: rgba(35, 40, 55, 0.35);
+          color: var(--secondary-text-color);
+          border: 1px solid rgba(255,255,255,0.08);
+        }
+        @media (max-width: 760px) {
+          .grid { grid-template-columns: repeat(${Math.max(1, this.config.mobile_columns)}, minmax(0, 1fr)); }
+        }
+      </style>
+      <ha-card>
+        ${this.config.show_header ? `
+          <div class="top">
+            <div class="title">${this._escape(this.config.title)}</div>
+            ${this.config.show_count ? `<div class="count">${pairs.length} устройств</div>` : ""}
+          </div>` : ""}
+        <div class="grid" id="grid"></div>
+      </ha-card>
+    `;
+
+    const grid = this.shadowRoot.getElementById("grid");
+    if (!grid) return;
+
+    if (!pairs.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "ETD-устройства не найдены. Проверь, что интеграция добавлена и есть camera/button сущности.";
+      grid.appendChild(empty);
+      return;
+    }
+
+    for (const pair of pairs) {
+      const card = document.createElement("etd-intercom-card");
+      card.setConfig({
+        title: pair.name,
+        camera_entity: pair.camera_entity,
+        button_entity: pair.button_entity,
+        height: this.config.height,
+        video_mode: this.config.video_mode,
+        open_text: this.config.open_text,
+        show_status: this.config.show_status,
+        show_hint: this.config.show_hint === true,
+        auto_start: this.config.auto_start,
+        show_preview_if_no_video: this.config.show_preview_if_no_video !== false,
+      });
+      card.hass = this._hass;
+      this._children.push(card);
+      grid.appendChild(card);
+    }
+  }
+
+  _escape(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+}
+
+customElements.define("etd-intercom-overview-card", ETDIntercomOverviewCard);
+
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "etd-intercom-card",
   name: "ETD Intercom Card",
   preview: true,
   description: "ETD intercom live iframe/WHEP view with open button",
+});
+
+
+window.customCards.push({
+  type: "etd-intercom-overview-card",
+  name: "ETD Intercom Overview",
+  preview: true,
+  description: "Auto-generated grid of all ETD intercom cards",
 });

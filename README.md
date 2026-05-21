@@ -110,3 +110,49 @@ streams:
 ## 0.7.2
 
 - Fixed WHEP overlay remaining visible after video starts.
+
+## Auto dashboard card
+
+Since v0.8.0 you can add one overview card instead of manually adding every door/camera.
+
+Recommended safe mode, previews only:
+
+```yaml
+type: custom:etd-intercom-overview-card
+title: Домофон
+columns: 2
+mobile_columns: 1
+video_mode: preview
+height: 220
+open_text: Открыть
+```
+
+Live mode via WHEP for all cards:
+
+```yaml
+type: custom:etd-intercom-overview-card
+title: Домофон
+columns: 2
+mobile_columns: 1
+video_mode: whep
+auto_start: true
+height: 220
+open_text: Открыть
+```
+
+Filtered examples:
+
+```yaml
+type: custom:etd-intercom-overview-card
+title: Подъезды
+include: подъезд, парадная
+exclude: калитка, ворота
+video_mode: preview
+```
+
+```yaml
+type: custom:etd-intercom-overview-card
+title: Калитки и ворота
+include: калитка, ворота
+video_mode: iframe
+```
