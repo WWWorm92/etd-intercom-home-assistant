@@ -583,6 +583,8 @@ class ETDIntercomOverviewCard extends HTMLElement {
       title: config.title || "ETD Intercom",
       columns: Number(config.columns || 2),
       mobile_columns: Number(config.mobile_columns || 1),
+      full_width: config.full_width === true,
+      max_width: config.max_width || "1600px",
       height: Number(config.height || 220),
       video_mode: config.video_mode || "preview", // preview | iframe | whep
       video_fit: config.video_fit || "cover",
@@ -648,6 +650,8 @@ class ETDIntercomOverviewCard extends HTMLElement {
       title: this.config.title,
       columns: this.config.columns,
       mobile_columns: this.config.mobile_columns,
+      full_width: this.config.full_width,
+      max_width: this.config.max_width,
       height: this.config.height,
       mode: this.config.video_mode,
       video_fit: this.config.video_fit,
@@ -747,12 +751,20 @@ class ETDIntercomOverviewCard extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display: block; }
+        :host {
+          display: block;
+          width: ${this.config.full_width ? `min(${this.config.max_width}, calc(100vw - 48px))` : "100%"};
+          max-width: ${this.config.full_width ? this.config.max_width : "100%"};
+          ${this.config.full_width ? "margin-left: 50%; transform: translateX(-50%);" : ""}
+          box-sizing: border-box;
+        }
         ha-card {
+          width: 100%;
           border-radius: 24px;
           background: transparent;
           box-shadow: none;
           border: 0;
+          box-sizing: border-box;
         }
         .top {
           display: flex;

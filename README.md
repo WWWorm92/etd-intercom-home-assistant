@@ -179,3 +179,8 @@ For iframe mode you can slightly crop the ETD player side bars:
 video_mode: iframe
 iframe_zoom: 1.12
 ```
+
+
+## v0.8.3
+
+Added `full_width` and `max_width` options for overview card to allow wide layouts in HA Sections view.
