@@ -685,8 +685,7 @@ class ETDIntercomOverviewCard extends HTMLElement {
       const key = String(intercomId);
       const item = byId.get(key) || {
         intercom_id: key,
-        name: attrs.etd_name || attrs.friendly_name || key,
-        source: attrs.source || "",
+        name: attrs.friendly_name || attrs.etd_name || key,        source: attrs.source || "",
         camera_entity: null,
         button_entity: null,
       };
