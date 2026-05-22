@@ -99,9 +99,9 @@ class ETDIntercomCard extends HTMLElement {
   }
 
   _getTitle(cameraState) {
-    if (this.config.title) return this.config.title;
-    return cameraState?.attributes?.etd_name || cameraState?.attributes?.friendly_name || "ETD Intercom";
-  }
+  if (this.config.title) return this.config.title;
+  return cameraState?.attributes?.friendly_name || cameraState?.attributes?.etd_name || "ETD Intercom";
+}
 
   _getEmbedLink(cameraState) {
     return cameraState?.attributes?.camera_embed_link || cameraState?.attributes?.embed_link || null;
