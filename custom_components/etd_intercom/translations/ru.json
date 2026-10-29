@@ -1,0 +1,65 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ETD Intercom",
+        "description": "Выберите способ авторизации.",
+        "data": {
+          "auth_method": "Способ авторизации"
+        }
+      },
+      "token": {
+        "title": "ETD Intercom: токен",
+        "description": "Введите готовый access token. Можно с Bearer или без него.\n\nДополнительно можно указать свои ID домофонов. Формат: ID | Название | Иконка.\n\nОшибка: {error}",
+        "data": {
+          "token": "Токен",
+          "custom_devices": "Свои ID домофонов"
+        }
+      },
+      "phone": {
+        "title": "ETD Intercom: SMS",
+        "description": "Введите номер телефона. Можно в формате +7XXXXXXXXXX, 7XXXXXXXXXX или 8XXXXXXXXXX.\n\nДополнительно можно указать свои ID домофонов. Формат: ID | Название | Иконка.\n\nОшибка: {error}",
+        "data": {
+          "phone": "Телефон",
+          "custom_devices": "Свои ID домофонов"
+        }
+      },
+      "sms_code": {
+        "title": "ETD Intercom: SMS-код",
+        "description": "Введите SMS-код.\n\nОшибка: {error}",
+        "data": {
+          "code": "SMS-код"
+        }
+      },
+      "reauth_confirm": {
+        "title": "ETD Intercom: повторный вход",
+        "description": "Авторизация ETD истекла или была отклонена. Войдите в тот же аккаунт с новым токеном или по SMS. Существующая интеграция и настройки ручных домофонов будут сохранены.",
+        "data": {
+          "auth_method": "Способ авторизации"
+        }
+      }
+    },
+    "error": {
+      "cannot_send_sms": "Не удалось отправить SMS",
+      "cannot_login": "Не удалось войти",
+      "invalid_code": "Неверный SMS-код",
+      "invalid_phone": "Неверный формат телефона",
+      "invalid_token": "Неверный токен",
+      "cannot_connect": "ETD временно недоступен. Повторите попытку позже."
+    },
+    "abort": {
+      "reauth_successful": "Авторизация обновлена. Интеграция перезагружается."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "ETD Intercom: настройки",
+        "description": "Укажите свои ID домофонов. Формат строки: ID | Название | Иконка | Preview URL | Embed link",
+        "data": {
+          "custom_devices": "Свои ID домофонов"
+        }
+      }
+    }
+  }
+}

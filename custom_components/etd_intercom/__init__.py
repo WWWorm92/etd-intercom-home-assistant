@@ -10,9 +10,10 @@ from aiohttp import ClientError, web
 from homeassistant.components.http import HomeAssistantView, StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import ETDApiClient, ETDDevice, apply_default_video_links, get_shared_video_params, merge_devices, parse_custom_devices
+from .api import ETDApiClient, ETDAuthError, ETDDevice, ETDError, apply_default_video_links, get_shared_video_params, merge_devices, parse_custom_devices
 from .const import (
     CARD_FILENAME,
     CONF_CUSTOM_DEVICES,
@@ -105,11 +106,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     session = async_get_clientsession(hass)
     api = ETDApiClient(session, entry.data.get(CONF_TOKEN))
 
-    api_devices: list[ETDDevice] = []
     try:
         api_devices = await api.fetch_intercoms()
-    except Exception as err:  # noqa: BLE001
-        _LOGGER.warning("Failed to load ETD intercom list, using manual devices only: %s", err)
+    except ETDAuthError as err:
+        raise ConfigEntryAuthFailed("ETD authorization expired or was rejected") from err
+    except ETDError as err:
+        raise ConfigEntryNotReady("ETD is unavailable; setup will be retried") from err
 
     custom_raw = entry.options.get(CONF_CUSTOM_DEVICES, entry.data.get(CONF_CUSTOM_DEVICES, ""))
     manual_devices = parse_custom_devices(custom_raw)
@@ -144,3 +146,4 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id, None)
     return unload_ok
+

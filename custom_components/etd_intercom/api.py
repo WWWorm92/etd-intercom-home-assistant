@@ -401,19 +401,32 @@ class ETDApiClient:
         except (TimeoutError, ClientError) as err:
             raise ETDError(f"intercom list request failed: {err}") from err
 
+        if response.status in (401, 403):
+            raise ETDAuthError("ETD intercom list authorization failed")
         if response.status != 200:
-            raise ETDError(f"ETD intercom list error {response.status}: {data}")
+            raise ETDError(f"ETD intercom list returned HTTP {response.status}")
+        if not isinstance(data, dict) or not isinstance(data.get("flats"), list):
+            raise ETDError("ETD intercom list returned an invalid response")
 
         devices: list[ETDDevice] = []
-        flats = data.get("flats", []) if isinstance(data, dict) else []
+        flats = data["flats"]
         for flat in flats:
-            address = flat.get("address_standard") if isinstance(flat, dict) else None
-            for intercom in flat.get("intercoms", []) or []:
+            if not isinstance(flat, dict):
+                raise ETDError("ETD intercom list returned an invalid flat")
+            address = flat.get("address_standard")
+            intercoms = flat.get("intercoms", []) or []
+            if not isinstance(intercoms, list):
+                raise ETDError("ETD intercom list returned invalid intercoms")
+            for intercom in intercoms:
+                if not isinstance(intercom, dict):
+                    raise ETDError("ETD intercom list returned an invalid intercom")
                 intercom_id = str(intercom.get("sip_username") or "").strip()
                 if not intercom_id:
                     continue
                 name = str(intercom.get("default_name") or intercom_id).strip()
                 camera = intercom.get("camera") or {}
+                if not isinstance(camera, dict):
+                    raise ETDError("ETD intercom list returned an invalid camera")
                 embed_link = camera.get("embed_link")
                 devices.append(
                     ETDDevice(
@@ -470,3 +483,4 @@ class ETDApiClient:
         except (TimeoutError, ClientError) as err:
             _LOGGER.debug("Failed to fetch preview image %s: %s", url, err)
             return None
+
