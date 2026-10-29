@@ -1,0 +1,49 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ETD Intercom",
+        "description": "Choose how to sign in.",
+        "data": {"auth_method": "Authentication method"}
+      },
+      "token": {
+        "title": "ETD Intercom: token",
+        "description": "Enter an access token, with or without Bearer. Optional custom intercoms: ID | Name | Icon.\n\nError: {error}",
+        "data": {"token": "Token", "custom_devices": "Custom intercom IDs"}
+      },
+      "phone": {
+        "title": "ETD Intercom: SMS",
+        "description": "Enter your phone number as +7XXXXXXXXXX, 7XXXXXXXXXX or 8XXXXXXXXXX. Optional custom intercoms: ID | Name | Icon.\n\nError: {error}",
+        "data": {"phone": "Phone number", "custom_devices": "Custom intercom IDs"}
+      },
+      "sms_code": {
+        "title": "ETD Intercom: SMS code",
+        "description": "Enter the SMS code.\n\nError: {error}",
+        "data": {"code": "SMS code"}
+      },
+      "reauth_confirm": {
+        "title": "ETD Intercom: sign in again",
+        "description": "ETD authorization has expired or was rejected. Sign in to the same account using a new token or SMS. Your existing integration and custom intercom settings will be preserved.",
+        "data": {"auth_method": "Authentication method"}
+      }
+    },
+    "error": {
+      "cannot_send_sms": "Unable to send an SMS",
+      "cannot_login": "Unable to sign in",
+      "invalid_code": "Invalid SMS code",
+      "invalid_phone": "Invalid phone number",
+      "invalid_token": "Invalid token",
+      "cannot_connect": "ETD is temporarily unavailable. Try again later."
+    },
+    "abort": {"reauth_successful": "Authorization updated. The integration is reloading."}
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "ETD Intercom: settings",
+        "description": "Enter custom intercoms, one per line: ID | Name | Icon | Preview URL | Embed link",
+        "data": {"custom_devices": "Custom intercom IDs"}
+      }
+    }
+  }
+}

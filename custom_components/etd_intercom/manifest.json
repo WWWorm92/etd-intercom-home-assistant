@@ -7,5 +7,6 @@
   "iot_class": "cloud_polling",
   "requirements": [],
   "after_dependencies": ["mqtt"],
-  "version": "0.8.4"
+  "version": "0.8.5"
 }
+

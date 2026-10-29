@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
@@ -30,6 +31,39 @@ class ETDIntercomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._phone: str | None = None
         self._call_id: str | None = None
         self._custom_devices: str = ""
+
+    async def async_step_reauth(self, entry_data: Mapping[str, Any]):
+        """Replace credentials on the existing entry, preserving its options."""
+        self._phone = entry_data.get(CONF_PHONE)
+        self._custom_devices = entry_data.get(CONF_CUSTOM_DEVICES, "")
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None):
+        entry = self._get_reauth_entry()
+        if user_input is not None:
+            if user_input[CONF_AUTH_METHOD] == AUTH_METHOD_SMS:
+                return await self.async_step_phone()
+            return await self.async_step_token()
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_AUTH_METHOD,
+                    default=entry.data.get(CONF_AUTH_METHOD, AUTH_METHOD_TOKEN),
+                ): vol.In({
+                    AUTH_METHOD_TOKEN: "По готовому токену",
+                    AUTH_METHOD_SMS: "По номеру телефона и SMS",
+                }),
+            }),
+        )
+
+    @callback
+    def _async_finish_auth(self, data: dict[str, Any]):
+        if self.source == config_entries.SOURCE_REAUTH:
+            return self.async_update_reload_and_abort(
+                self._get_reauth_entry(), data_updates=data,
+            )
+        return self.async_create_entry(title="ETD Intercom", data=data)
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         errors: dict[str, str] = {}
@@ -67,17 +101,18 @@ class ETDIntercomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 api = ETDApiClient(session, token)
                 # Validate token by trying to load intercom list.
                 await api.fetch_intercoms()
-                return self.async_create_entry(
-                    title="ETD Intercom",
-                    data={
+                return self._async_finish_auth(
+                    {
                         CONF_AUTH_METHOD: AUTH_METHOD_TOKEN,
                         CONF_TOKEN: token,
-                        CONF_CUSTOM_DEVICES: user_input.get(CONF_CUSTOM_DEVICES, ""),
+                        CONF_CUSTOM_DEVICES: user_input.get(CONF_CUSTOM_DEVICES, self._custom_devices),
                     },
                 )
-            except Exception as err:  # noqa: BLE001
-                _LOGGER.warning("ETD token validation failed: %s", err)
+            except ETDAuthError as err:
                 errors["base"] = "invalid_token"
+                description_placeholders["error"] = str(err)
+            except ETDError as err:
+                errors["base"] = "cannot_connect"
                 description_placeholders["error"] = str(err)
 
         return self.async_show_form(
@@ -85,7 +120,7 @@ class ETDIntercomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_TOKEN): str,
-                    vol.Optional(CONF_CUSTOM_DEVICES, default=""): str,
+                    vol.Optional(CONF_CUSTOM_DEVICES, default=self._custom_devices): str,
                 }
             ),
             errors=errors,
@@ -108,7 +143,7 @@ class ETDIntercomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     description_placeholders=description_placeholders,
                 )
 
-            self._custom_devices = user_input.get(CONF_CUSTOM_DEVICES, "")
+            self._custom_devices = user_input.get(CONF_CUSTOM_DEVICES, self._custom_devices)
             session = async_get_clientsession(self.hass)
             self.api = ETDApiClient(session)
 
@@ -127,8 +162,8 @@ class ETDIntercomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="phone",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_PHONE): str,
-                    vol.Optional(CONF_CUSTOM_DEVICES, default=""): str,
+                    vol.Required(CONF_PHONE, default=self._phone or ""): str,
+                    vol.Optional(CONF_CUSTOM_DEVICES, default=self._custom_devices): str,
                 }
             ),
             errors=errors,
@@ -145,9 +180,8 @@ class ETDIntercomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             try:
                 token = await self.api.submit_sms_code(self._call_id, user_input["code"])
-                return self.async_create_entry(
-                    title="ETD Intercom",
-                    data={
+                return self._async_finish_auth(
+                    {
                         CONF_AUTH_METHOD: AUTH_METHOD_SMS,
                         CONF_PHONE: self._phone,
                         CONF_TOKEN: token,
@@ -195,3 +229,4 @@ class ETDIntercomOptionsFlow(config_entries.OptionsFlow):
                 }
             ),
         )
+
